@@ -11,7 +11,7 @@ export default function PageHeader({ title, subtitle, action, icon = FileText }:
   const renderIcon = () => {
     try {
       if (icon && typeof icon === 'object' && '$$typeof' in icon) {
-        const Icon = icon as React.ElementType
+        const Icon = icon as any
         return (
           <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center">
             <Icon className="w-5 h-5 text-teal-700" />

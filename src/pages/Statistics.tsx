@@ -154,7 +154,8 @@ export default function Statistics() {
             centers: r.centers,
             phase: r.phase,
             status: r.status,
-          })
+            centerName: r.centerName,
+          } as any)
           setEnrollmentData(r.enrollment || {})
           setCrfStats(r.crfStats || {})
           setSaeStats(r.saeStats || {})
@@ -345,8 +346,8 @@ export default function Statistics() {
 
   const aeChartOption = useMemo(() => {
     const byType = saeStats.byType || {}
-    const labels: Record<string, string> = { death: '死亡', life_threatening: '危及生命', hospitalization: '住院', disabling: '致残', congenital_anomaly: '先天异常', other: '其他' }
-    const colors: Record<string, string> = { death: '#DC2626', life_threatening: '#7C3AED', hospitalization: '#0F766E', disabling: '#D97706', congenital_anomaly: '#EC4899', other: '#64748b' }
+    const labels: Record<string, string> = { death: '死亡', life_threatening: '危及生命', hospitalization: '住院', disabling: '致残', congenital_anomaly: '先天异常', other_serious: '其他严重', other: '其他' }
+    const colors: Record<string, string> = { death: '#DC2626', life_threatening: '#7C3AED', hospitalization: '#0F766E', disabling: '#D97706', congenital_anomaly: '#EC4899', other_serious: '#64748b', other: '#64748b' }
     const entries = Object.entries(byType).filter(([, v]) => (v as number) > 0)
     const hasData = entries.length > 0
     return {
@@ -676,7 +677,7 @@ export default function Statistics() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {Object.entries(saeStats.byType).map(([k, v]) => {
                       const labels: Record<string, string> = { death: '死亡', life_threatening: '危及生命', hospitalization: '住院', disabling: '致残', congenital_anomaly: '先天异常', other_serious: '其他严重', other: '其他' }
-                      const colors: Record<string, string> = { death: 'text-red-700', life_threatening: 'text-purple-700', hospitalization: 'text-teal-700', disabling: 'text-amber-700', congenital_anomaly: 'text-pink-700', other: 'text-slate-700' }
+                      const colors: Record<string, string> = { death: 'text-red-700', life_threatening: 'text-purple-700', hospitalization: 'text-teal-700', disabling: 'text-amber-700', congenital_anomaly: 'text-pink-700', other_serious: 'text-slate-700', other: 'text-slate-700' }
                       return (v as number) > 0 ? (
                         <div key={k}>
                           <p className="text-xs text-slate-400">{labels[k] || k}</p>

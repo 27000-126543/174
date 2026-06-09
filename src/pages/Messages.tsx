@@ -78,7 +78,7 @@ export default function Messages() {
           title: m.title || '',
           content: m.content || '',
           isRead: !!m.read,
-          certificateUrl: m.relatedId ? `/api/messages/${m.id}/certificate` : null,
+          certificateUrl: (m.type === 'sae' && m.relatedId) ? `/api/sae/certificate/${m.relatedId}` : null,
           createdAt: m.createdAt || '',
           relatedId: m.relatedId ? String(m.relatedId) : null,
         } as any))
@@ -205,9 +205,13 @@ export default function Messages() {
     }
   }
 
-  const handleDownloadCert = (url: string) => {
-    window.open(url, '_blank')
-    showToast('凭证下载中...')
+  const handleDownloadCert = async (msg: Message) => {
+    const saeId = (msg as any).relatedId
+    if (!saeId) {
+      showToast('无关联SAE记录')
+      return
+    }
+    await handleDownloadSaeCert(String(saeId))
   }
 
   return (
@@ -324,7 +328,7 @@ export default function Messages() {
                     )}
                     {msg.type !== 'sae' && msg.certificateUrl && (
                       <button
-                        onClick={() => handleDownloadCert(msg.certificateUrl!)}
+                        onClick={() => handleDownloadCert(msg)}
                         className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-1"
                       >
                         <Download className="w-3.5 h-3.5" />
