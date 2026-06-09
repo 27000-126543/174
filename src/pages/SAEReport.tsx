@@ -8,30 +8,26 @@ interface Subject {
   name: string
 }
 
-const eventTypes = ['死亡', '危及生命', '住院', '致残', '其他严重事件']
+const eventTypes = [
+  { value: 'death', label: '死亡' },
+  { value: 'life_threatening', label: '危及生命' },
+  { value: 'hospitalization', label: '住院' },
+  { value: 'disability', label: '致残' },
+  { value: 'other_serious', label: '其他严重事件' },
+]
 
 const severityOptions = [
-  { value: '1', label: '1级 - 轻度' },
-  { value: '2', label: '2级 - 中度' },
-  { value: '3', label: '3级 - 重度' },
-  { value: '4', label: '4级 - 危及生命' },
-  { value: '5', label: '5级 - 死亡' },
+  { value: '严重', label: '严重' },
+  { value: '危及生命', label: '危及生命' },
+  { value: '死亡', label: '死亡' },
 ]
 
 const causalityOptions = ['肯定有关', '可能有关', '可能无关', '无关']
 
-const mockSubjects: Subject[] = [
-  { id: 'S-001', name: '王明' },
-  { id: 'S-002', name: '李芳' },
-  { id: 'S-003', name: '张磊' },
-  { id: 'S-004', name: '赵敏' },
-  { id: 'S-005', name: '陈强' },
-]
-
 function calculateDeadline(onsetDate: string, eventType: string): Date | null {
   if (!onsetDate) return null
   const onset = new Date(onsetDate)
-  if (eventType === '死亡' || eventType === '危及生命') {
+  if (eventType === 'death' || eventType === 'life_threatening') {
     return new Date(onset.getTime() + 24 * 60 * 60 * 1000)
   }
   return new Date(onset.getTime() + 15 * 24 * 60 * 60 * 1000)
@@ -69,12 +65,8 @@ export default function SAEReport() {
         const res = await api.get<Subject[]>('/subjects')
         if (res.success && res.data) {
           setSubjects(res.data)
-        } else {
-          setSubjects(mockSubjects)
         }
-      } catch {
-        setSubjects(mockSubjects)
-      }
+      } catch {}
     }
     fetchSubjects()
   }, [])
@@ -83,7 +75,7 @@ export default function SAEReport() {
     return calculateDeadline(form.onsetDate, form.eventType)
   }, [form.onsetDate, form.eventType])
 
-  const isUrgent = form.eventType === '死亡' || form.eventType === '危及生命'
+  const isUrgent = form.eventType === 'death' || form.eventType === 'life_threatening'
 
   const deadlineColor = useMemo(() => {
     if (!deadline) return ''
@@ -203,7 +195,7 @@ export default function SAEReport() {
             >
               <option value="">请选择事件类型</option>
               {eventTypes.map((t) => (
-                <option key={t} value={t}>{t}</option>
+                <option key={t.value} value={t.value}>{t.label}</option>
               ))}
             </select>
           </div>
@@ -264,7 +256,7 @@ export default function SAEReport() {
                     className="sr-only"
                   />
                   <span className={`w-2.5 h-2.5 rounded-full ${
-                    parseInt(opt.value) <= 2 ? 'bg-green-500' : parseInt(opt.value) === 3 ? 'bg-amber-500' : 'bg-red-500'
+                    opt.value === '严重' ? 'bg-amber-500' : 'bg-red-500'
                   }`} />
                   <span className="text-sm font-medium">{opt.label}</span>
                 </label>
@@ -300,7 +292,7 @@ export default function SAEReport() {
               <p className="text-sm font-medium text-red-700 mb-2">确认上报此严重不良事件？</p>
               <div className="space-y-1 text-sm text-slate-600">
                 <p>受试者：{selectedSubject?.name || form.subjectId}</p>
-                <p>事件类型：{form.eventType}</p>
+                <p>事件类型：{eventTypes.find((t) => t.value === form.eventType)?.label || form.eventType}</p>
                 <p>严重程度：{severityOptions.find((o) => o.value === form.severity)?.label}</p>
                 <p>因果关系：{form.causality}</p>
                 {deadline && <p>报告截止：{deadline.toLocaleString('zh-CN')}</p>}

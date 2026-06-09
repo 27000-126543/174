@@ -42,6 +42,7 @@ const navItems: NavItem[] = [
   { label: '伦理审查', path: '/ethics', icon: Shield, allowedRoles: ['ec', 'sponsor'] },
   { label: '访视管理', path: '/visits', icon: Calendar, allowedRoles: ['investigator', 'crc'] },
   { label: '数据锁定', path: '/data-lock', icon: Lock, allowedRoles: ['dm'] },
+  { label: '锁定复核包', path: '/data-lock-review', icon: Lock, allowedRoles: ['sponsor'] },
   { label: '统计报告', path: '/statistics', icon: BarChart3, allowedRoles: ['dm', 'sponsor'] },
   { label: '绩效报告', path: '/performance', icon: TrendingUp, allowedRoles: ['sponsor', 'dm'] },
   { label: '消息中心', path: '/messages', icon: Bell, allowedRoles: ['sponsor', 'investigator', 'crc', 'dm', 'ec', 'subject'] },

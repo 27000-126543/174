@@ -61,6 +61,7 @@ export interface Subject {
   name: string
   gender: 'male' | 'female'
   birthDate: string
+  phone?: string
   status: 'enrolled' | 'screening' | 'eligible' | 'consented' | 'randomized' | 'active' | 'completed' | 'withdrawn'
   enrolledDate: string
   withdrawnDate?: string
@@ -130,6 +131,34 @@ export interface SAEReport {
   reporterId: number
   causality?: string
   severity?: string
+  processingRecords?: SAEProcessingRecord[]
+  escalationRecords?: SAEEscalationRecord[]
+  materials?: SAEMaterial[]
+  assigneeId?: number
+  regulatoryStatus?: 'pending' | 'submitted' | 'acknowledged'
+}
+
+export interface SAEProcessingRecord {
+  time: string
+  action: string
+  operator: string
+  detail?: string
+}
+
+export interface SAEEscalationRecord {
+  time: string
+  reason: string
+  fromLevel: string
+  toLevel: string
+  operator: string
+}
+
+export interface SAEMaterial {
+  id: number
+  name: string
+  description: string
+  uploadedAt: string
+  uploadedBy: number
 }
 
 export interface Randomization {
@@ -381,9 +410,9 @@ export const queries: Query[] = [
 ]
 
 export const saeReports: SAEReport[] = [
-  { id: saeIds.next(), subjectId: 4, trialId: 1, eventType: 'hospitalization', description: '受试者因严重头晕入院治疗，怀疑与试验药物相关', onsetDate: '2024-06-10', reportDate: '2024-06-10', deadline: '2024-06-25', status: 'submitted', reporterId: 4, causality: '可能相关', severity: '严重' },
-  { id: saeIds.next(), subjectId: 1, trialId: 1, eventType: 'life_threatening', description: '受试者出现严重过敏反应，危及生命', onsetDate: '2024-07-01', reportDate: '2024-07-01', deadline: '2024-07-02', status: 'under_review', reporterId: 3, causality: '可能相关', severity: '危及生命' },
-  { id: saeIds.next(), subjectId: 6, trialId: 2, eventType: 'other_serious', description: '受试者出现严重低血糖事件', onsetDate: '2024-08-05', reportDate: '2024-08-05', deadline: '2024-08-20', status: 'reported', reporterId: 3, causality: '很可能相关', severity: '严重' },
+  { id: saeIds.next(), subjectId: 4, trialId: 1, eventType: 'hospitalization', description: '受试者因严重头晕入院治疗，怀疑与试验药物相关', onsetDate: '2024-06-10', reportDate: '2024-06-10', deadline: '2024-06-25', status: 'submitted', reporterId: 4, causality: '可能相关', severity: '严重', assigneeId: 7, regulatoryStatus: 'submitted', processingRecords: [{ time: '2024-06-10', action: '提交SAE报告', operator: '赵研究者' }, { time: '2024-06-11', action: '进入审查', operator: '伦理委员会' }, { time: '2024-06-12', action: '提交监管机构', operator: '杨数据' }] },
+  { id: saeIds.next(), subjectId: 1, trialId: 1, eventType: 'life_threatening', description: '受试者出现严重过敏反应，危及生命', onsetDate: '2024-07-01', reportDate: '2024-07-01', deadline: '2024-07-02', status: 'under_review', reporterId: 3, causality: '可能相关', severity: '危及生命', assigneeId: 7, regulatoryStatus: 'pending', processingRecords: [{ time: '2024-07-01', action: '提交SAE报告', operator: '王研究者' }, { time: '2024-07-01', action: '进入审查', operator: '伦理委员会' }] },
+  { id: saeIds.next(), subjectId: 6, trialId: 2, eventType: 'other_serious', description: '受试者出现严重低血糖事件', onsetDate: '2024-08-05', reportDate: '2024-08-05', deadline: '2024-08-20', status: 'reported', reporterId: 3, causality: '很可能相关', severity: '严重', assigneeId: 8, regulatoryStatus: 'pending', processingRecords: [{ time: '2024-08-05', action: '提交SAE报告', operator: '王研究者' }] },
 ]
 
 export const randomizations: Randomization[] = [

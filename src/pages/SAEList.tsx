@@ -10,31 +10,31 @@ interface SAEItem extends SAEReport {
 
 const statusLabels: Record<string, string> = {
   reported: '已报告',
-  reviewing: '审查中',
+  under_review: '审查中',
+  submitted: '已提交',
   closed: '已关闭',
 }
 
 const statusColors: Record<string, string> = {
   reported: 'bg-blue-50 text-blue-600',
-  reviewing: 'bg-amber-50 text-amber-600',
+  under_review: 'bg-amber-50 text-amber-600',
+  submitted: 'bg-purple-50 text-purple-600',
   closed: 'bg-green-50 text-green-600',
 }
 
-const severityColors: Record<number, string> = {
-  1: 'bg-green-500',
-  2: 'bg-green-500',
-  3: 'bg-amber-500',
-  4: 'bg-red-500',
-  5: 'bg-red-500',
+const severityMap: Record<string, { label: string; color: string }> = {
+  '危及生命': { label: '危及生命', color: 'bg-red-500' },
+  '严重': { label: '严重', color: 'bg-amber-500' },
+  '死亡': { label: '死亡', color: 'bg-red-700' },
 }
 
-const mockData: SAEItem[] = [
-  { id: 'SAE-001', subjectId: 'S-001', subjectName: '王明', eventType: '住院', description: '严重肝功能异常', onsetDate: '2026-06-08T10:00:00', reportDate: '2026-06-08T11:00:00', severity: '3', causality: '可能有关', status: 'reviewing', deadline: '2026-06-23T11:00:00' },
-  { id: 'SAE-002', subjectId: 'S-002', subjectName: '李芳', eventType: '危及生命', description: '严重过敏反应', onsetDate: '2026-06-07T08:00:00', reportDate: '2026-06-07T09:00:00', severity: '4', causality: '肯定有关', status: 'reported', deadline: '2026-06-08T09:00:00' },
-  { id: 'SAE-003', subjectId: 'S-003', subjectName: '张磊', eventType: '死亡', description: '心源性猝死', onsetDate: '2026-06-05T14:00:00', reportDate: '2026-06-05T15:00:00', severity: '5', causality: '可能无关', status: 'closed', deadline: '2026-06-06T15:00:00' },
-  { id: 'SAE-004', subjectId: 'S-004', subjectName: '赵敏', eventType: '致残', description: '不可逆神经损伤', onsetDate: '2026-06-09T06:00:00', reportDate: '2026-06-09T07:00:00', severity: '4', causality: '可能有关', status: 'reported', deadline: '2026-06-10T07:00:00' },
-  { id: 'SAE-005', subjectId: 'S-005', subjectName: '陈强', eventType: '住院', description: '急性肾损伤', onsetDate: '2026-06-06T20:00:00', reportDate: '2026-06-06T21:00:00', severity: '3', causality: '无关', status: 'reviewing', deadline: '2026-06-21T21:00:00' },
-]
+const eventTypeLabels: Record<string, string> = {
+  death: '死亡',
+  life_threatening: '危及生命',
+  hospitalization: '住院',
+  disability: '致残',
+  other_serious: '其他严重',
+}
 
 function getCountdown(deadline: string): { text: string; color: string; overdue: boolean } {
   const now = new Date().getTime()
@@ -64,12 +64,8 @@ export default function SAEList() {
         const res = await api.get<SAEItem[]>('/sae')
         if (res.success && res.data) {
           setData(res.data)
-        } else {
-          setData(mockData)
         }
-      } catch {
-        setData(mockData)
-      }
+      } catch {}
       setLoading(false)
     }
     fetchData()
@@ -83,7 +79,7 @@ export default function SAEList() {
 
   const stats = [
     { label: '总报告数', value: data.length, icon: FileWarning, color: 'bg-slate-50 text-slate-700', border: 'border-l-slate-400' },
-    { label: '待审查', value: data.filter((d) => d.status === 'reviewing').length, icon: Clock, color: 'bg-amber-50 text-amber-600', border: 'border-l-amber-500' },
+    { label: '审查中', value: data.filter((d) => d.status === 'under_review').length, icon: Clock, color: 'bg-amber-50 text-amber-600', border: 'border-l-amber-500' },
     { label: '已报告', value: data.filter((d) => d.status === 'reported').length, icon: AlertTriangle, color: 'bg-blue-50 text-blue-600', border: 'border-l-blue-500' },
     { label: '已关闭', value: data.filter((d) => d.status === 'closed').length, icon: CheckCircle, color: 'bg-green-50 text-green-600', border: 'border-l-green-500' },
   ]
@@ -91,17 +87,15 @@ export default function SAEList() {
   const statusTabs = [
     { key: 'all', label: '全部' },
     { key: 'reported', label: '已报告' },
-    { key: 'reviewing', label: '审查中' },
+    { key: 'under_review', label: '审查中' },
     { key: 'closed', label: '已关闭' },
   ]
 
   const severityLevels = [
     { key: 'all', label: '全部' },
-    { key: '1', label: '1级' },
-    { key: '2', label: '2级' },
-    { key: '3', label: '3级' },
-    { key: '4', label: '4级' },
-    { key: '5', label: '5级' },
+    { key: '危及生命', label: '危及生命' },
+    { key: '严重', label: '严重' },
+    { key: '死亡', label: '死亡' },
   ]
 
   return (
@@ -193,7 +187,7 @@ export default function SAEList() {
               ) : (
                 filtered.map((item) => {
                   const countdown = getCountdown(item.deadline)
-                  const sev = parseInt(item.severity) || 1
+                  const sevInfo = severityMap[item.severity] || { label: item.severity, color: 'bg-slate-400' }
                   return (
                     <tr
                       key={item.id}
@@ -202,13 +196,13 @@ export default function SAEList() {
                       }`}
                       onClick={() => navigate(`/sae/${item.id}`)}
                     >
-                      <td className="px-4 py-3 text-sm font-medium text-slate-800">{item.id}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-slate-800">SAE-{item.id}</td>
                       <td className="px-4 py-3 text-sm text-slate-700">{item.subjectName || item.subjectId}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{item.eventType}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700">{eventTypeLabels[item.eventType] || item.eventType}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <span className={`w-2.5 h-2.5 rounded-full ${severityColors[sev] || 'bg-slate-400'}`} />
-                          <span className="text-sm text-slate-700">{sev}级</span>
+                          <span className={`w-2.5 h-2.5 rounded-full ${sevInfo.color}`} />
+                          <span className="text-sm text-slate-700">{sevInfo.label}</span>
                         </div>
                       </td>
                       <td className="px-4 py-3">

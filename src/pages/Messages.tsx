@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Bell, FileText, HelpCircle, AlertTriangle, Lock, Download, ChevronDown, ChevronUp } from 'lucide-react'
+import { Bell, FileText, HelpCircle, AlertTriangle, Lock, Download, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
 import PageHeader from '@/components/PageHeader'
 import { api } from '@/lib/api'
 import { useMessageStore } from '@/store/messageStore'
@@ -26,22 +26,17 @@ const typeToFilter: Record<string, FilterKey> = {
   consent: 'consent',
   query: 'query',
   sae: 'sae',
+  data_lock: 'datalock',
   datalock: 'datalock',
-  other: 'other',
+  system: 'other',
+  visit: 'other',
+  ethics: 'other',
+  performance: 'other',
+  randomization: 'other',
 }
 
-const mockMessages: Message[] = [
-  { id: '1', userId: 'U-01', type: 'consent', title: '知情同意书签署提醒', content: '受试者王明（S-2024-0128）已完成知情同意书签署，请及时审核确认。签署时间：2026-06-09 10:30。', isRead: false, certificateUrl: '/certs/consent-001.pdf', createdAt: '2026-06-09T10:35:00' },
-  { id: '2', userId: 'U-01', type: 'query', title: '新质疑待处理', content: 'CRF记录 #CRF-0456 产生新质疑：访视3血压数据异常，请核实并回复。质疑编号：Q-0456', isRead: false, certificateUrl: null, createdAt: '2026-06-09T09:20:00' },
-  { id: '3', userId: 'U-01', type: 'sae', title: 'SAE报告提交提醒', content: '受试者张磊（S-2024-0125）发生严重不良事件，请尽快完成SAE报告上报。事件类型：严重低血糖，发生日期：2026-06-08。', isRead: false, certificateUrl: null, createdAt: '2026-06-08T16:00:00' },
-  { id: '4', userId: 'U-01', type: 'datalock', title: '数据锁定通知', content: '试验T-001的数据已于2026-06-08 14:30被锁定，锁定范围：全部试验数据。锁定人：数据管理员 陈华。', isRead: true, certificateUrl: null, createdAt: '2026-06-08T14:30:00' },
-  { id: '5', userId: 'U-01', type: 'consent', title: '知情同意书签署确认', content: '受试者李芳（S-2024-0115）知情同意书已审核通过。', isRead: true, certificateUrl: '/certs/consent-002.pdf', createdAt: '2026-06-07T11:00:00' },
-  { id: '6', userId: 'U-01', type: 'query', title: '质疑回复提醒', content: '质疑 #Q-0452 已有新回复，请查看。回复人：CRC 张伟，回复内容：已核实，数据无误。', isRead: false, certificateUrl: null, createdAt: '2026-06-07T09:45:00' },
-  { id: '7', userId: 'U-01', type: 'other', title: '系统维护通知', content: '系统将于2026年6月10日凌晨2:00-4:00进行维护升级，届时系统将不可用，请提前安排工作。', isRead: true, certificateUrl: null, createdAt: '2026-06-06T15:00:00' },
-]
-
 function timeAgo(dateStr: string): string {
-  const now = new Date('2026-06-09T12:00:00')
+  const now = new Date()
   const d = new Date(dateStr)
   const diff = Math.floor((now.getTime() - d.getTime()) / 1000)
   if (diff < 60) return '刚刚'
@@ -61,7 +56,7 @@ const filterTabs: { key: FilterKey; label: string }[] = [
 ]
 
 export default function Messages() {
-  const { messages, fetchMessages, markAsRead, unreadCount } = useMessageStore()
+  const { messages, fetchMessages, markAsRead, markAllRead, unreadCount } = useMessageStore()
   const [localMessages, setLocalMessages] = useState<Message[]>([])
   const [filter, setFilter] = useState<FilterKey>('all')
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -72,13 +67,25 @@ export default function Messages() {
   }, [])
 
   const loadMessages = async () => {
+    try {
+      const res = await api.get<any>('/messages')
+      if (res.success && res.data) {
+        const items = res.data.items || res.data
+        const mapped: Message[] = (Array.isArray(items) ? items : []).map((m: any) => ({
+          id: String(m.id),
+          userId: String(m.userId),
+          type: m.type === 'data_lock' ? 'datalock' : ['system', 'visit', 'ethics', 'performance', 'randomization'].includes(m.type) ? 'other' : m.type,
+          title: m.title || '',
+          content: m.content || '',
+          isRead: !!m.read,
+          certificateUrl: m.relatedId ? `/api/messages/${m.id}/certificate` : null,
+          createdAt: m.createdAt || '',
+          relatedId: m.relatedId ? String(m.relatedId) : null,
+        } as any))
+        setLocalMessages(mapped)
+      }
+    } catch {}
     await fetchMessages()
-    const res = await api.get<Message[]>('/messages')
-    if (res.success && res.data) {
-      setLocalMessages(res.data)
-    } else {
-      setLocalMessages(mockMessages)
-    }
   }
 
   const showToast = (msg: string) => {
@@ -93,8 +100,6 @@ export default function Messages() {
     if (filter === 'unread') return !m.isRead
     return typeToFilter[m.type] === filter
   })
-
-  const currentUnreadCount = displayMessages.filter((m) => !m.isRead).length
 
   const handleExpand = async (msg: Message) => {
     if (expandedId === msg.id) {
@@ -111,14 +116,97 @@ export default function Messages() {
   }
 
   const handleMarkAllRead = async () => {
-    for (const m of displayMessages.filter((m) => !m.isRead)) {
-      await markAsRead(m.id)
+    try {
+      await markAllRead()
+      setLocalMessages((prev) => prev.map((m) => ({ ...m, isRead: true })))
+      showToast('已全部标记为已读')
+    } catch {
+      showToast('操作失败')
     }
-    setLocalMessages((prev) => prev.map((m) => ({ ...m, isRead: true })))
-    showToast('已全部标记为已读')
+  }
+
+  const handleDownloadSaeCert = async (saeId: string) => {
+    try {
+      const res = await api.get<any>(`/sae/certificate/${saeId}`)
+      if (res.success && res.data) {
+        const c = res.data
+        const lines = [
+          '═══════════════════════════════════════════',
+          '       严重不良事件(SAE)报告凭证',
+          '═══════════════════════════════════════════',
+          '',
+          `凭证编号：${c.certificateId}`,
+          `生成时间：${new Date(c.generatedAt).toLocaleString('zh-CN')}`,
+          '',
+          '─────── 基本信息 ───────',
+          `试验名称：${c.trialName}`,
+          `方案编号：${c.trialProtocol}`,
+          `受试者编号：${c.subjectCode}`,
+          `受试者姓名：${c.subjectName}`,
+          '',
+          '─────── 事件信息 ───────',
+          `事件类型：${c.eventType}`,
+          `严重程度：${c.severity || '未填写'}`,
+          `因果关系：${c.causality || '未填写'}`,
+          `事件描述：${c.description}`,
+          '',
+          '─────── 报告时限 ───────',
+          `发生日期：${c.onsetDate}`,
+          `报告日期：${c.reportDate}`,
+          `截止日期：${c.deadline}`,
+          `报告时限：${c.deadlineType}`,
+          '',
+          '─────── 报告人及状态 ───────',
+          `报告人：${c.reporterName}`,
+          `当前责任人：${c.assigneeName || '未指定'}`,
+          `当前状态：${c.status}`,
+          `监管状态：${c.regulatoryStatus || '待提交'}`,
+          `下一步动作：${c.nextAction || '-'}`,
+          '',
+          '─────── 处理记录 ───────',
+          ...(c.processingRecords || []).map((r: any, i: number) =>
+            `  ${i + 1}. [${r.time}] ${r.action} - ${r.operator}${r.detail ? ` (${r.detail})` : ''}`
+          ),
+          '',
+          ...(c.escalationRecords || []).length > 0 ? [
+            '─────── 升级记录 ───────',
+            ...(c.escalationRecords || []).map((r: any, i: number) =>
+              `  ${i + 1}. [${r.time}] ${r.fromLevel} → ${r.toLevel}：${r.reason} (${r.operator})`
+            ),
+            '',
+          ] : [],
+          ...(c.materials || []).length > 0 ? [
+            '─────── 说明材料 ───────',
+            ...(c.materials || []).map((m: any, i: number) =>
+              `  ${i + 1}. ${m.name}${m.description ? ` - ${m.description}` : ''} (上传于${m.uploadedAt})`
+            ),
+            '',
+          ] : [],
+          '─────── 通知对象 ───────',
+          ...(c.notificationTargets || []).map((t: any) =>
+            `  · ${t.target}：${t.detail}`
+          ),
+          '',
+          '═══════════════════════════════════════════',
+          '  本凭证由临床试验管理系统自动生成',
+          '═══════════════════════════════════════════',
+        ]
+        const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${c.certificateId}.txt`
+        a.click()
+        URL.revokeObjectURL(url)
+        showToast('凭证下载成功')
+      }
+    } catch {
+      showToast('凭证下载失败')
+    }
   }
 
   const handleDownloadCert = (url: string) => {
+    window.open(url, '_blank')
     showToast('凭证下载中...')
   }
 
@@ -129,9 +217,9 @@ export default function Messages() {
         title="消息中心"
         action={
           <div className="flex items-center gap-3">
-            {currentUnreadCount > 0 && (
+            {unreadCount > 0 && (
               <span className="px-2.5 py-0.5 bg-red-50 text-red-600 text-xs font-bold rounded-full">
-                {currentUnreadCount}条未读
+                {unreadCount}条未读
               </span>
             )}
             <button
@@ -208,7 +296,25 @@ export default function Messages() {
                 <div className="mt-4 pt-4 border-t border-slate-100 space-y-3">
                   <p className="text-sm text-slate-600 leading-relaxed">{msg.content}</p>
                   <div className="flex items-center gap-3">
-                    {config.path && (
+                    {msg.type === 'sae' && msg.certificateUrl && (
+                      <>
+                        <a
+                          href={`/sae/${(msg as any).relatedId || ''}`}
+                          className="px-3 py-1.5 bg-teal-700 text-white text-xs rounded-lg hover:bg-teal-800 transition-colors flex items-center gap-1"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          查看SAE详情
+                        </a>
+                        <button
+                          onClick={() => (msg as any).relatedId && handleDownloadSaeCert(String((msg as any).relatedId))}
+                          className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-1"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          下载SAE凭证
+                        </button>
+                      </>
+                    )}
+                    {msg.type !== 'sae' && config.path && (
                       <a
                         href={config.path}
                         className="px-3 py-1.5 bg-teal-700 text-white text-xs rounded-lg hover:bg-teal-800 transition-colors"
@@ -216,7 +322,7 @@ export default function Messages() {
                         查看详情
                       </a>
                     )}
-                    {msg.certificateUrl && (
+                    {msg.type !== 'sae' && msg.certificateUrl && (
                       <button
                         onClick={() => handleDownloadCert(msg.certificateUrl!)}
                         className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-1"

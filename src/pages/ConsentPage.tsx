@@ -151,7 +151,7 @@ export default function ConsentPage() {
   }
 
   const consentStatus: ConsentStatus = consent
-    ? consent.isLocked
+    ? (consent as any).locked
       ? 'locked'
       : consent.subjectSignature && consent.investigatorSignature
       ? 'signed'
@@ -165,7 +165,7 @@ export default function ConsentPage() {
     setLoading(true)
     Promise.all([
       api.get<Subject>(`/subjects/${id}`),
-      api.get<Consent>(`/consent/${id}`),
+      api.get<any>(`/consents/${id}`),
     ]).then(([subjectRes, consentRes]) => {
       if (subjectRes.success && subjectRes.data) {
         setSubject(subjectRes.data)
@@ -174,22 +174,24 @@ export default function ConsentPage() {
         })
       }
       if (consentRes.success && consentRes.data) {
-        setConsent(consentRes.data)
-        if (consentRes.data.subjectSignature) setSubjectSig(consentRes.data.subjectSignature)
-        if (consentRes.data.investigatorSignature)
-          setInvestigatorSig(consentRes.data.investigatorSignature)
+        const consentData = Array.isArray(consentRes.data) ? consentRes.data[0] : consentRes.data
+        if (consentData) {
+          setConsent(consentData)
+          if (consentData.subjectSignature) setSubjectSig(consentData.subjectSignature)
+          if (consentData.investigatorSignature) setInvestigatorSig(consentData.investigatorSignature)
+        }
       }
       setLoading(false)
     })
   }, [id])
 
   const handleSignSubject = async () => {
-    if (!subjectSig || !id) return
+    if (!subjectSig || !consent) return
     setSigningSubject(true)
-    const res = await api.post<Consent>('/consent/sign', {
-      subjectId: id,
-      type: 'subject',
-      signature: subjectSig,
+    const res = await api.post<any>('/consents/sign', {
+      consentId: consent.id,
+      signatureType: 'subject',
+      signatureData: subjectSig,
     })
     if (res.success && res.data) {
       setConsent(res.data)
@@ -201,12 +203,12 @@ export default function ConsentPage() {
   }
 
   const handleSignInvestigator = async () => {
-    if (!investigatorSig || !id) return
+    if (!investigatorSig || !consent) return
     setSigningInvestigator(true)
-    const res = await api.post<Consent>('/consent/sign', {
-      subjectId: id,
-      type: 'investigator',
-      signature: investigatorSig,
+    const res = await api.post<any>('/consents/sign', {
+      consentId: consent.id,
+      signatureType: 'investigator',
+      signatureData: investigatorSig,
     })
     if (res.success && res.data) {
       setConsent(res.data)
@@ -220,7 +222,7 @@ export default function ConsentPage() {
   const handleLock = async () => {
     if (!consent) return
     setLocking(true)
-    const res = await api.put<Consent>(`/consent/${consent.id}/lock`)
+    const res = await api.put<any>(`/consents/${(consent as any).id}/lock`)
     if (res.success && res.data) {
       setConsent(res.data)
       showToast('success', '知情同意书已锁定')

@@ -18,6 +18,7 @@ import Randomization from '@/pages/Randomization'
 import EthicsReview from '@/pages/EthicsReview'
 import VisitManagement from '@/pages/VisitManagement'
 import DataLock from '@/pages/DataLock'
+import DataLockReview from '@/pages/DataLockReview'
 import Statistics from '@/pages/Statistics'
 import Performance from '@/pages/Performance'
 import Messages from '@/pages/Messages'
@@ -51,6 +52,7 @@ export default function App() {
           <Route path="/ethics" element={<EthicsReview />} />
           <Route path="/visits" element={<VisitManagement />} />
           <Route path="/data-lock" element={<DataLock />} />
+          <Route path="/data-lock-review" element={<DataLockReview />} />
           <Route path="/statistics" element={<Statistics />} />
           <Route path="/performance" element={<Performance />} />
           <Route path="/messages" element={<Messages />} />

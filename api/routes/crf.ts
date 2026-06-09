@@ -18,6 +18,78 @@ router.get('/', authMiddleware, async (req: Request, res: Response): Promise<voi
   }
 })
 
+router.get('/queries', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { trialId, subjectId, status } = req.query
+    let result = [...queries]
+    if (trialId) result = result.filter(q => q.trialId === Number(trialId))
+    if (subjectId) result = result.filter(q => q.subjectId === Number(subjectId))
+    if (status) result = result.filter(q => q.status === status)
+    res.json({ success: true, data: result })
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message })
+  }
+})
+
+router.post('/queries/batch', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { queryIds: qIds, action, answer } = req.body
+    if (!qIds || !Array.isArray(qIds) || !action) {
+      res.status(400).json({ success: false, error: '缺少必填字段' })
+      return
+    }
+    const results: any[] = []
+    for (const qId of qIds) {
+      const q = findById(queries, qId)
+      if (!q) continue
+      if (action === 'answer' && answer) {
+        const updated = update(queries, qId, {
+          answer,
+          status: 'answered',
+          answeredBy: req.user!.id,
+          answeredAt: new Date().toISOString(),
+        })
+        results.push(updated)
+      } else if (action === 'close') {
+        const updated = update(queries, qId, {
+          status: 'closed',
+          answeredAt: q.answeredAt || new Date().toISOString(),
+        })
+        results.push(updated)
+      }
+    }
+    res.json({ success: true, data: results })
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message })
+  }
+})
+
+router.put('/queries/:id', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const q = findById(queries, Number(req.params.id))
+    if (!q) {
+      res.status(404).json({ success: false, error: '质疑不存在' })
+      return
+    }
+    const { answer, action } = req.body
+    const updates: any = {}
+    if (answer) {
+      updates.answer = answer
+      updates.status = 'answered'
+      updates.answeredBy = req.user!.id
+      updates.answeredAt = new Date().toISOString()
+    }
+    if (action === 'close') {
+      updates.status = 'closed'
+      if (!updates.answeredAt) updates.answeredAt = new Date().toISOString()
+    }
+    const updated = update(queries, Number(req.params.id), updates)
+    res.json({ success: true, data: updated })
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message })
+  }
+})
+
 router.get('/:id', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   try {
     const crf = findById(crfRecords, Number(req.params.id))
@@ -153,78 +225,6 @@ router.post('/validate', authMiddleware, async (req: Request, res: Response): Pr
         queries: newQueries,
       },
     })
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message })
-  }
-})
-
-router.get('/queries', authMiddleware, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { trialId, subjectId, status } = req.query
-    let result = [...queries]
-    if (trialId) result = result.filter(q => q.trialId === Number(trialId))
-    if (subjectId) result = result.filter(q => q.subjectId === Number(subjectId))
-    if (status) result = result.filter(q => q.status === status)
-    res.json({ success: true, data: result })
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message })
-  }
-})
-
-router.post('/queries/batch', authMiddleware, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { queryIds: qIds, action, answer } = req.body
-    if (!qIds || !Array.isArray(qIds) || !action) {
-      res.status(400).json({ success: false, error: '缺少必填字段' })
-      return
-    }
-    const results: any[] = []
-    for (const qId of qIds) {
-      const q = findById(queries, qId)
-      if (!q) continue
-      if (action === 'answer' && answer) {
-        const updated = update(queries, qId, {
-          answer,
-          status: 'answered',
-          answeredBy: req.user!.id,
-          answeredAt: new Date().toISOString(),
-        })
-        results.push(updated)
-      } else if (action === 'close') {
-        const updated = update(queries, qId, {
-          status: 'closed',
-          answeredAt: q.answeredAt || new Date().toISOString(),
-        })
-        results.push(updated)
-      }
-    }
-    res.json({ success: true, data: results })
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message })
-  }
-})
-
-router.put('/queries/:id', authMiddleware, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const q = findById(queries, Number(req.params.id))
-    if (!q) {
-      res.status(404).json({ success: false, error: '质疑不存在' })
-      return
-    }
-    const { answer, action } = req.body
-    const updates: any = {}
-    if (answer) {
-      updates.answer = answer
-      updates.status = 'answered'
-      updates.answeredBy = req.user!.id
-      updates.answeredAt = new Date().toISOString()
-    }
-    if (action === 'close') {
-      updates.status = 'closed'
-      if (!updates.answeredAt) updates.answeredAt = new Date().toISOString()
-    }
-    const updated = update(queries, Number(req.params.id), updates)
-    res.json({ success: true, data: updated })
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message })
   }

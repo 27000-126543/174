@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express'
-import { dataLocks, dataLockIds, crfRecords, subjects, trials, saeReports, queries, create, update, findById, pushMessageToUsers, getUsersByRole } from '../db.js'
+import { dataLocks, dataLockIds, crfRecords, subjects, trials, saeReports, queries, users, create, update, findById, pushMessageToUsers, getUsersByRole } from '../db.js'
 import { authMiddleware, requireRole } from '../middleware/auth.js'
 
 const router = Router()
@@ -94,6 +94,13 @@ router.get('/report', authMiddleware, async (req: Request, res: Response): Promi
         trialName: trial.name,
         phase: trial.phase,
         status: trial.status,
+        sponsorName: findById(users, trial.sponsorId)?.name || '未知',
+        centers: trial.centers.map(c => ({
+          id: c.id,
+          name: c.name,
+          enrolledCount: c.enrolledCount,
+          subjects: trialSubjects.filter(s => s.centerId === c.id).length,
+        })),
         enrollment: {
           total: trialSubjects.length,
           target: trial.targetEnrollment,
@@ -103,7 +110,10 @@ router.get('/report', authMiddleware, async (req: Request, res: Response): Promi
             completed: trialSubjects.filter(s => s.status === 'completed').length,
             withdrawn: trialSubjects.filter(s => s.status === 'withdrawn').length,
             screening: trialSubjects.filter(s => ['screening', 'enrolled'].includes(s.status)).length,
-            other: trialSubjects.filter(s => !['active', 'completed', 'withdrawn', 'screening', 'enrolled'].includes(s.status)).length,
+            eligible: trialSubjects.filter(s => s.status === 'eligible').length,
+            consented: trialSubjects.filter(s => s.status === 'consented').length,
+            randomized: trialSubjects.filter(s => s.status === 'randomized').length,
+            other: trialSubjects.filter(s => !['active', 'completed', 'withdrawn', 'screening', 'enrolled', 'eligible', 'consented', 'randomized'].includes(s.status)).length,
           },
         },
         crfStats: {
@@ -133,6 +143,7 @@ router.get('/report', authMiddleware, async (req: Request, res: Response): Promi
           answered: trialQueries.filter(q => q.status === 'answered').length,
           closed: trialQueries.filter(q => q.status === 'closed').length,
         },
+        lockDate: dataLocks.find(dl => dl.trialId === trial.id)?.lockedAt || '',
       }
     })
     res.json({ success: true, data: reports })
@@ -150,16 +161,28 @@ router.get('/summary', authMiddleware, async (req: Request, res: Response): Prom
       const trialSubjects = subjects.filter(s => s.trialId === trial.id)
       const trialSAEs = saeReports.filter(s => s.trialId === trial.id)
       const trialQueries = queries.filter(q => q.trialId === trial.id)
+      const trialCRFs = crfRecords.filter(c => c.trialId === trial.id)
       const openQueries = trialQueries.filter(q => q.status === 'open').length
       const totalQueries = trialQueries.length
+      const verifiedCRFs = trialCRFs.filter(c => c.status === 'verified').length
+      const totalCRFs = trialCRFs.length
+      const errorCRFs = trialCRFs.filter(c => c.errors && c.errors.length > 0).length
+      const dataQualityScore = totalCRFs > 0
+        ? Math.round(((verifiedCRFs + (totalCRFs - errorCRFs - verifiedCRFs) * 0.5) / totalCRFs) * 100)
+        : 100
       return {
         trialId: trial.id,
         trialName: trial.name,
         protocol: trial.protocol,
         phase: trial.phase,
         status: trial.status,
-        sponsor: findById(trials, trial.sponsorId)?.name || '',
-        centers: trial.centers.length,
+        sponsor: users.find(u => u.id === trial.sponsorId)?.name || '未知',
+        centers: trial.centers.map(c => ({
+          id: c.id,
+          name: c.name,
+          enrolledCount: c.enrolledCount,
+          subjects: trialSubjects.filter(s => s.centerId === c.id).length,
+        })),
         enrollment: `${trialSubjects.length}/${trial.targetEnrollment}`,
         enrollmentRate: Math.round((trialSubjects.length / trial.targetEnrollment) * 100) + '%',
         activeSubjects: trialSubjects.filter(s => s.status === 'active').length,
@@ -168,8 +191,9 @@ router.get('/summary', authMiddleware, async (req: Request, res: Response): Prom
         saeCount: trialSAEs.length,
         openQueries: openQueries,
         queryResolutionRate: totalQueries > 0 ? Math.round(((totalQueries - openQueries) / totalQueries) * 100) + '%' : 'N/A',
-        startDate: trial.startDate,
-        endDate: trial.endDate,
+        dataQualityScore,
+        startDate: trial.startDate || 'N/A',
+        endDate: trial.endDate || 'N/A',
       }
     })
     res.json({ success: true, data: summaries })

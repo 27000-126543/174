@@ -71,8 +71,11 @@ export default function SubjectDetail() {
       setLoading(false)
     })
 
-    api.get<Consent>(`/consent/${id}`).then((res) => {
-      if (res.success && res.data) setConsent(res.data)
+    api.get<any>(`/consents/${id}`).then((res) => {
+      if (res.success && res.data) {
+        const consentData = Array.isArray(res.data) ? res.data[0] : res.data
+        if (consentData) setConsent(consentData)
+      }
     })
     api.get<CRFRecord[]>(`/crf?subjectId=${id}`).then((res) => {
       if (res.success && res.data) setCrfRecords(res.data)
@@ -94,7 +97,7 @@ export default function SubjectDetail() {
       return
     }
     const nextStatus = statusFlow[currentIdx + 1]
-    const res = await api.put<Subject>(`/subjects/${subject.id}`, { status: nextStatus })
+    const res = await api.put<Subject>(`/subjects/${subject.id}/status`, { status: nextStatus })
     if (res.success && res.data) {
       setSubject(res.data)
     }
@@ -306,7 +309,7 @@ export default function SubjectDetail() {
                 <StatusBadge
                   status={
                     consent
-                      ? consent.isLocked
+                      ? (consent as any).locked
                         ? 'locked'
                         : consent.subjectSignature && consent.investigatorSignature
                         ? 'signed'
@@ -334,8 +337,8 @@ export default function SubjectDetail() {
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-400">锁定状态</span>
-                  <span className={consent?.isLocked ? 'text-teal-700 font-medium' : 'text-slate-400'}>
-                    {consent?.isLocked ? '已锁定' : '未锁定'}
+                  <span className={(consent as any)?.locked ? 'text-teal-700 font-medium' : 'text-slate-400'}>
+                    {(consent as any)?.locked ? '已锁定' : '未锁定'}
                   </span>
                 </div>
               </div>

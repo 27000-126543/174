@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express'
-import { subjects, subjectIds, trials, create, update, pushMessage } from '../db.js'
+import { subjects, subjectIds, trials, consents, consentIds, create, update, pushMessage } from '../db.js'
 import { authMiddleware } from '../middleware/auth.js'
 
 const router = Router()
@@ -23,8 +23,8 @@ router.get('/', authMiddleware, async (req: Request, res: Response): Promise<voi
 
 router.post('/enroll', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { trialId, centerId, name, gender, birthDate, medicalConditions, medications } = req.body
-    if (!trialId || !centerId || !name || !gender || !birthDate) {
+    const { trialId, centerId, name, gender, birthDate, age, phone, medicalConditions, medications } = req.body
+    if (!trialId || !name || !gender) {
       res.status(400).json({ success: false, error: '缺少必填字段' })
       return
     }
@@ -35,18 +35,29 @@ router.post('/enroll', authMiddleware, async (req: Request, res: Response): Prom
     }
     const trialSubjects = subjects.filter(s => s.trialId === trialId)
     const code = `${trial.protocol.split('-').slice(0, 2).join('-')}-${String(trialSubjects.length + 1).padStart(3, '0')}`
+    const computedBirthDate = birthDate || (age ? `${new Date().getFullYear() - Number(age)}-01-01` : '2000-01-01')
     const subject = create(subjects, {
       id: subjectIds.next(),
       trialId,
-      centerId,
+      centerId: centerId || 1,
       subjectCode: code,
       name,
       gender,
-      birthDate,
+      birthDate: computedBirthDate,
+      phone: phone || '',
       status: 'enrolled',
       enrolledDate: new Date().toISOString().split('T')[0],
       medicalConditions: medicalConditions || [],
       medications: medications || [],
+    })
+    const consent = create(consents, {
+      id: consentIds.next(),
+      subjectId: subject.id,
+      trialId,
+      version: 'V1.0',
+      content: `${trial?.name || ''}临床试验知情同意书\n\n版本：V1.0\n\n尊敬的受试者：\n\n您正在参加一项临床试验。在您决定是否参加之前，请仔细阅读以下内容：\n\n1. 试验目的：评估试验药物的安全性和有效性\n2. 试验流程：包括筛选期、治疗期和随访期\n3. 可能的风险：试验药物可能引起不良反应\n4. 您的权益：您可以随时退出试验\n5. 保密条款：您的个人信息将严格保密\n\n如您同意参加，请在下方签名。`,
+      locked: false,
+      createdAt: new Date().toISOString(),
     })
     pushMessage(req.user!.id, 'system', '受试者入组', `受试者${name}(${code})已成功入组`, subject.id, 'subject')
     res.status(201).json({ success: true, data: subject })

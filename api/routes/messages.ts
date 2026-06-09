@@ -15,16 +15,35 @@ router.get('/', authMiddleware, async (req: Request, res: Response): Promise<voi
     const ps = Number(pageSize) || 20
     const total = result.length
     const paginated = result.slice((p - 1) * ps, p * ps)
+    const itemsWithCertificate = paginated.map(m => ({
+      ...m,
+      certificateUrl: m.relatedId ? `/api/messages/${m.id}/certificate` : null,
+    }))
     res.json({
       success: true,
       data: {
-        items: paginated,
+        items: itemsWithCertificate,
         total,
         page: p,
         pageSize: ps,
         unreadCount: messages.filter(m => m.userId === req.user!.id && !m.read).length,
       },
     })
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message })
+  }
+})
+
+router.put('/read-all', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    let count = 0
+    for (const msg of messages) {
+      if (msg.userId === req.user!.id && !msg.read) {
+        update(messages, msg.id, { read: true })
+        count++
+      }
+    }
+    res.json({ success: true, data: { count } })
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message })
   }
