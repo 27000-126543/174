@@ -192,7 +192,7 @@ export default function DataLockReview() {
 
   return (
     <div className="space-y-6">
-      <PageHeader icon={Lock} title="数据锁定复核包" />
+      <PageHeader icon={<Lock className="w-5 h-5 text-teal-700" />} title="数据锁定复核包" />
 
       {toast && (
         <div className="fixed top-6 right-6 z-50 bg-teal-700 text-white px-5 py-3 rounded-lg shadow-lg text-sm animate-pulse">

@@ -9,18 +9,34 @@ interface PageHeaderProps {
 
 export default function PageHeader({ title, subtitle, action, icon = FileText }: PageHeaderProps) {
   const renderIcon = () => {
-    if (typeof icon === 'function') {
-      const Icon = icon
+    try {
+      if (icon && typeof icon === 'object' && '$$typeof' in icon) {
+        const Icon = icon as React.ElementType
+        return (
+          <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center">
+            <Icon className="w-5 h-5 text-teal-700" />
+          </div>
+        )
+      }
+      if (typeof icon === 'function') {
+        const Icon = icon
+        return (
+          <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center">
+            <Icon className="w-5 h-5 text-teal-700" />
+          </div>
+        )
+      }
+      if (icon) {
+        return (
+          <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center">
+            {icon}
+          </div>
+        )
+      }
+    } catch {
       return (
         <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center">
-          <Icon className="w-5 h-5 text-teal-700" />
-        </div>
-      )
-    }
-    if (icon) {
-      return (
-        <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center">
-          {icon}
+          <FileText className="w-5 h-5 text-teal-700" />
         </div>
       )
     }
