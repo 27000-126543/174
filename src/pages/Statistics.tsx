@@ -113,7 +113,7 @@ export default function Statistics() {
 
   useEffect(() => {
     fetchData()
-  }, [selectedTrialId])
+  }, [selectedTrialId, selectedCenterId])
 
   const loadTrials = async () => {
     try {
@@ -127,11 +127,14 @@ export default function Statistics() {
 
   const fetchData = async () => {
     try {
-      const params = selectedTrialId ? `?trialId=${selectedTrialId}` : ''
+      const params = new URLSearchParams()
+      if (selectedTrialId) params.set('trialId', String(selectedTrialId))
+      if (selectedCenterId) params.set('centerId', String(selectedCenterId))
+      const qs = params.toString() ? `?${params.toString()}` : ''
       const [reportRes, summaryRes, lockRes] = await Promise.all([
-        api.get<any>(`/data/report${params}`),
-        api.get<any>(`/data/summary${params}`),
-        api.get<any>(`/data/log${params}`),
+        api.get<any>(`/data/report${qs}`),
+        api.get<any>(`/data/summary${qs}`),
+        api.get<any>(`/data/log${qs}`),
       ])
       if (reportRes.success && reportRes.data) {
         const reports = Array.isArray(reportRes.data) ? reportRes.data : [reportRes.data]
@@ -197,8 +200,11 @@ export default function Statistics() {
   }
 
   const handleGenerateReport = async () => {
-    const params = selectedTrialId ? `?trialId=${selectedTrialId}` : ''
-    const res = await api.get(`/data/report${params}`)
+    const params = new URLSearchParams()
+    if (selectedTrialId) params.set('trialId', String(selectedTrialId))
+    if (selectedCenterId) params.set('centerId', String(selectedCenterId))
+    const qs = params.toString() ? `?${params.toString()}` : ''
+    const res = await api.get(`/data/report${qs}`)
     if (res.success) {
       showToast('统计报告已生成')
       fetchData()
@@ -215,6 +221,7 @@ export default function Statistics() {
     lines.push('')
     lines.push(`试验名称：${report.trialName}`)
     lines.push(`申办方：${report.sponsorName || '-'}`)
+    if ((report as any).centerName) lines.push(`筛选中心：${(report as any).centerName}`)
     lines.push(`数据锁定日期：${report.lockDate}`)
     lines.push(`报告生成日期：${report.generatedDate}`)
     lines.push('')
@@ -235,7 +242,7 @@ export default function Statistics() {
     lines.push('─────── SAE统计 ───────')
     lines.push(`SAE总数：${saeStats.total || 0}`)
     if (saeStats.byType) {
-      const labels: Record<string, string> = { death: '死亡', life_threatening: '危及生命', hospitalization: '住院', disabling: '致残', congenital_anomaly: '先天异常', other: '其他' }
+      const labels: Record<string, string> = { death: '死亡', life_threatening: '危及生命', hospitalization: '住院', disabling: '致残', congenital_anomaly: '先天异常', other_serious: '其他严重', other: '其他' }
       for (const [k, v] of Object.entries(saeStats.byType)) {
         if (v as number > 0) lines.push(`  ${labels[k] || k}: ${v}`)
       }
@@ -668,7 +675,7 @@ export default function Statistics() {
                 {saeStats.byType && Object.values(saeStats.byType).some((v: any) => v > 0) ? (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {Object.entries(saeStats.byType).map(([k, v]) => {
-                      const labels: Record<string, string> = { death: '死亡', life_threatening: '危及生命', hospitalization: '住院', disabling: '致残', congenital_anomaly: '先天异常', other: '其他' }
+                      const labels: Record<string, string> = { death: '死亡', life_threatening: '危及生命', hospitalization: '住院', disabling: '致残', congenital_anomaly: '先天异常', other_serious: '其他严重', other: '其他' }
                       const colors: Record<string, string> = { death: 'text-red-700', life_threatening: 'text-purple-700', hospitalization: 'text-teal-700', disabling: 'text-amber-700', congenital_anomaly: 'text-pink-700', other: 'text-slate-700' }
                       return (v as number) > 0 ? (
                         <div key={k}>

@@ -67,14 +67,20 @@ router.get('/log', authMiddleware, async (req: Request, res: Response): Promise<
 
 router.get('/report', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { trialId } = req.query
+    const { trialId, centerId } = req.query
     const targetTrialId = trialId ? Number(trialId) : undefined
+    const targetCenterId = centerId ? Number(centerId) : undefined
     const trialList = targetTrialId ? trials.filter(t => t.id === targetTrialId) : trials
     const reports = trialList.map(trial => {
-      const trialSubjects = subjects.filter(s => s.trialId === trial.id)
-      const trialCRFs = crfRecords.filter(c => c.trialId === trial.id)
-      const trialSAEs = saeReports.filter(s => s.trialId === trial.id)
-      const trialQueries = queries.filter(q => q.trialId === trial.id)
+      let trialSubjects = subjects.filter(s => s.trialId === trial.id)
+      if (targetCenterId) trialSubjects = trialSubjects.filter(s => s.centerId === targetCenterId)
+      const subjectIds = new Set(trialSubjects.map(s => s.id))
+      let trialCRFs = crfRecords.filter(c => c.trialId === trial.id)
+      if (targetCenterId) trialCRFs = trialCRFs.filter(c => subjectIds.has(c.subjectId))
+      let trialSAEs = saeReports.filter(s => s.trialId === trial.id)
+      if (targetCenterId) trialSAEs = trialSAEs.filter(s => subjectIds.has(s.subjectId))
+      let trialQueries = queries.filter(q => q.trialId === trial.id)
+      if (targetCenterId) trialQueries = trialQueries.filter(q => subjectIds.has(q.subjectId))
       const vitalCRFs = trialCRFs.filter(c => c.formType === 'vital_signs')
       const sbpValues = vitalCRFs.filter(c => c.data.sbp).map(c => c.data.sbp)
       const dbpValues = vitalCRFs.filter(c => c.data.dbp).map(c => c.data.dbp)
@@ -95,12 +101,16 @@ router.get('/report', authMiddleware, async (req: Request, res: Response): Promi
         phase: trial.phase,
         status: trial.status,
         sponsorName: findById(users, trial.sponsorId)?.name || '未知',
-        centers: trial.centers.map(c => ({
-          id: c.id,
-          name: c.name,
-          enrolledCount: c.enrolledCount,
-          subjects: trialSubjects.filter(s => s.centerId === c.id).length,
-        })),
+        centers: trial.centers
+          .filter(c => !targetCenterId || c.id === targetCenterId)
+          .map(c => ({
+            id: c.id,
+            name: c.name,
+            enrolledCount: c.enrolledCount,
+            subjects: trialSubjects.filter(s => s.centerId === c.id).length,
+          })),
+        centerId: targetCenterId || null,
+        centerName: targetCenterId ? trial.centers.find(c => c.id === targetCenterId)?.name || '' : null,
         enrollment: {
           total: trialSubjects.length,
           target: trial.targetEnrollment,
@@ -134,7 +144,9 @@ router.get('/report', authMiddleware, async (req: Request, res: Response): Promi
             death: trialSAEs.filter(s => s.eventType === 'death').length,
             life_threatening: trialSAEs.filter(s => s.eventType === 'life_threatening').length,
             hospitalization: trialSAEs.filter(s => s.eventType === 'hospitalization').length,
-            other: trialSAEs.filter(s => !['death', 'life_threatening', 'hospitalization'].includes(s.eventType)).length,
+            disabling: trialSAEs.filter(s => s.eventType === 'disabling').length,
+            congenital_anomaly: trialSAEs.filter(s => s.eventType === 'congenital_anomaly').length,
+            other_serious: trialSAEs.filter(s => s.eventType === 'other_serious').length,
           },
         },
         queryStats: {
@@ -154,14 +166,20 @@ router.get('/report', authMiddleware, async (req: Request, res: Response): Promi
 
 router.get('/summary', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { trialId } = req.query
+    const { trialId, centerId } = req.query
     const targetTrialId = trialId ? Number(trialId) : undefined
+    const targetCenterId = centerId ? Number(centerId) : undefined
     const trialList = targetTrialId ? trials.filter(t => t.id === targetTrialId) : trials
     const summaries = trialList.map(trial => {
-      const trialSubjects = subjects.filter(s => s.trialId === trial.id)
-      const trialSAEs = saeReports.filter(s => s.trialId === trial.id)
-      const trialQueries = queries.filter(q => q.trialId === trial.id)
-      const trialCRFs = crfRecords.filter(c => c.trialId === trial.id)
+      let trialSubjects = subjects.filter(s => s.trialId === trial.id)
+      if (targetCenterId) trialSubjects = trialSubjects.filter(s => s.centerId === targetCenterId)
+      const subjectIds = new Set(trialSubjects.map(s => s.id))
+      let trialSAEs = saeReports.filter(s => s.trialId === trial.id)
+      if (targetCenterId) trialSAEs = trialSAEs.filter(s => subjectIds.has(s.subjectId))
+      let trialQueries = queries.filter(q => q.trialId === trial.id)
+      if (targetCenterId) trialQueries = trialQueries.filter(q => subjectIds.has(q.subjectId))
+      let trialCRFs = crfRecords.filter(c => c.trialId === trial.id)
+      if (targetCenterId) trialCRFs = trialCRFs.filter(c => subjectIds.has(c.subjectId))
       const openQueries = trialQueries.filter(q => q.status === 'open').length
       const totalQueries = trialQueries.length
       const verifiedCRFs = trialCRFs.filter(c => c.status === 'verified').length
@@ -177,12 +195,16 @@ router.get('/summary', authMiddleware, async (req: Request, res: Response): Prom
         phase: trial.phase,
         status: trial.status,
         sponsor: users.find(u => u.id === trial.sponsorId)?.name || '未知',
-        centers: trial.centers.map(c => ({
-          id: c.id,
-          name: c.name,
-          enrolledCount: c.enrolledCount,
-          subjects: trialSubjects.filter(s => s.centerId === c.id).length,
-        })),
+        centerId: targetCenterId || null,
+        centerName: targetCenterId ? trial.centers.find(c => c.id === targetCenterId)?.name || '' : null,
+        centers: trial.centers
+          .filter(c => !targetCenterId || c.id === targetCenterId)
+          .map(c => ({
+            id: c.id,
+            name: c.name,
+            enrolledCount: c.enrolledCount,
+            subjects: trialSubjects.filter(s => s.centerId === c.id).length,
+          })),
         enrollment: `${trialSubjects.length}/${trial.targetEnrollment}`,
         enrollmentRate: Math.round((trialSubjects.length / trial.targetEnrollment) * 100) + '%',
         activeSubjects: trialSubjects.filter(s => s.status === 'active').length,
